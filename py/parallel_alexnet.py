@@ -1,31 +1,35 @@
+#!/usr/bin/env python
+
 import os
 import torch
 import torchvision
 import torch.distributed as dist
 
+
 from torch.nn.parallel import DistributedDataParallel as DDP
 from model import AlexNet
 from helper_dataset import get_dataloaders_cifar10_ddp
-from helper_train import train_model_ddp, get_right_ddp, compute_accuracy_ddp
+from helper_training import train_model_ddp, get_right_ddp, compute_accuracy_ddp
+
 
 def main():
     world_size = int(os.getenv("SLURM_NPROCS")) # Get overall number of processes.
     rank = int(os.getenv("SLURM_PROCID"))       # Get individual process ID.
-    slurm_job_gpus = os.getenv("SLURM_JOB_GPUS")
     slurm_localid = int(os.getenv("SLURM_LOCALID"))
-    gpus_per_node = torch.cuda.device_count()
-    gpu = rank % gpus_per_node
-    assert gpu == slurm_localid
+    address = os.getenv("SLURM_LAUNCH_NODE_IPADDR")
+    port = "29500"
+    os.environ["MASTER_ADDR"] = address
+    os.environ["MASTER_PORT"] = port
     device = f"cuda:{slurm_localid}"
-    torch.cuda.set_device(device)
-    
+    torch.cuda.set_device(device) 
+
     # Initialize DDP.
     dist.init_process_group(backend="nccl", rank=rank, world_size=world_size, init_method="env://")
     if dist.is_initialized(): 
         print(f"Rank {rank}/{world_size}: Process group initialized with torch rank {torch.distributed.get_rank()} and torch world size {torch.distributed.get_world_size()}.")
     
-    b = 256 # Set batch size.
-    e = 100 # Set number of epochs to be trained.
+    b = 512 # Set batch size.
+    e = 3   # Set number of epochs to be trained.
     
     train_transforms = torchvision.transforms.Compose([
         torchvision.transforms.Resize((70, 70)),
@@ -44,7 +48,7 @@ def main():
     # Get distributed dataloaders for training and validation data on all ranks.
     train_loader, valid_loader = get_dataloaders_cifar10_ddp(
         batch_size=b, 
-        root='/scratch/hpc-prf-nhrgs/mweiel/data', 
+        root='../data', 
         train_transforms=train_transforms,
         test_transforms=test_transforms
     )
@@ -53,7 +57,7 @@ def main():
     # Final testing is only done on root.
     if dist.get_rank() == 0:
         test_dataset = torchvision.datasets.CIFAR10(
-            root="/scratch/hpc-prf-nhrgs/mweiel/data",
+            root="../data",
             train=False,
             transform=test_transforms
         )
