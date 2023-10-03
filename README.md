@@ -1,4 +1,6 @@
-# KSETA Course 2023
+# KSETA Course 2023 - Scalable AI
+
+This repository contains the materials for the course on "Scalable AI" for the KSETA course 2023.
 
 ## Hands-on Session: `Pytorch DistributedDataParallel`
 In this hands-on tutorial, you will learn how to train a data-parallel neural network using `PyTorch`'s `DistributedDataParallel` package. 
